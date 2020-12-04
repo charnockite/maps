@@ -1,30 +1,60 @@
 const importMaps = require("./importMaps.js")
 
-describe("Import maps", () => {
+describe("Create objects", () =>{
+  //create required objects
+  test("Create WorldMap object", ()=> {
+    let testMap = new importMaps.WorldMap;
+    expect(testMap instanceof importMaps.WorldMap).toBeTruthy()
+  })
+  test("Create Screen object", ()=> {
+    let testScreen = new importMaps.Screen;
+    expect(testScreen instanceof importMaps.Screen).toBeTruthy()
+  })
+})
+
+describe("WorldMap - Import maps", () => {
   test("Import a map", () => {
     //do a test
     testPath = "roads.asc"
     nCols = 403;
     nRows = 300;
     nEntries = nCols * nRows;
-    let results = importMaps.importMap(testPath, "road")
-    let expectedOutput = [{"x":0,"y":0,"value":1}]
+    let testWorldMap = new importMaps.WorldMap
+    testWorldMap.importMap(testPath,"road")
+    let results = testWorldMap.getMap()
     //expect(results).toMatchObject(expectedOutput);
     //expect(results.length).toEqual(nRows);
-    expect(results[0]).toMatchObject({"x":101,"y":0,value:'road'})
+    expect(results[0]).toMatchObject({"x":101,"y":0,value:"road"})
+  });
+  test("Import two maps", () => {
+    //do a test
+    testPath1 = "roads.asc"
+    testPath2 = "water.asc"
+    nCols = 403;
+    nRows = 300;
+    nEntries = nCols * nRows;
+    let testWorldMap = new importMaps.WorldMap
+    testWorldMap.importMap(testPath1, "road")
+    testWorldMap.importMap(testPath2, "water")
+    let results = testWorldMap.getMap()
+    //expect(results).toMatchObject(expectedOutput);
+    //expect(results.length).toEqual(nRows);
+    expect(results[0]).toMatchObject({"x":101,"y":0,value:"road"})
+    expect(results[19000]).toMatchObject({value:"water"})
   });
 });
 
-describe("Filter maps", () => {
+describe("WorldMap - Filter maps", () => {
   test("Filter a map to x and y limits", () => {
     //do a test
     testPath = "roads.asc"
-    testMap = importMaps.importMap(testPath, "road")
+    let testWorldMap = new importMaps.WorldMap
+    testMap = testWorldMap.importMap(testPath, "road")
     xMin = 100;
     xMax = 200;
     yMin = 200;
     yMax = 250;
-    filtered = importMaps.getMapForWindow(testMap,xMin,xMax,yMin,yMax)
+    let filtered = testWorldMap.getMapForWindow(xMin,xMax,yMin,yMax)
     //expect(results).toMatchObject(expectedOutput);
     //expect(results.length).toEqual(nRows);
     expect(filtered.reduce((acc,value)=>{
@@ -58,21 +88,24 @@ describe("Filter maps", () => {
   });
 });
 
-describe("Interactive map", () => {
-  test("Scroll map", ()=>{
-    let testPath = "roads.asc"
-    let waterPath = "water.asc"
-    let buildingPath = "buildings.asc"
-    let roadMap = importMaps.importMap(testPath, "road")
-    let waterMap = importMaps.importMap(waterPath, "water")
-    let buildingMap = importMaps.importMap(buildingPath, "building")
-    let combinedMap = roadMap.concat(waterMap,buildingMap)
-    xMin = 150;
-    xMax = 230;
-    yMin = 118;
-    yMax = 142;
-    let start = importMaps.getMapForWindow(combinedMap,xMin,xMax,yMin,yMax)
-    importMaps.drawMap(start, xMin, yMin)
+describe("Screen - Interactive map", () => {
+  let testPath = "roads.asc"
+  let waterPath = "water.asc"
+  let buildingPath = "buildings.asc"
+  let testWorldMap = new importMaps.WorldMap
+  let testScreen = new importMaps.Screen(testWorldMap, 150, 118)
+  testWorldMap.importMap(waterPath,"water")
+  testWorldMap.importMap(testPath,"road")
+  testWorldMap.importMap(buildingPath,"building")
+  xMin = 150;
+  xMax = 230;
+  yMin = 118;
+  yMax = 142;
+  test("Show map", ()=>{
+    testScreen.drawMap()
+  })
+  test("Scroll map", () => {
     //scroll map
+    testScreen.scrollUp(1)
   })
 });

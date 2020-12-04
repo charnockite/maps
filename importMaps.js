@@ -9,78 +9,126 @@ exports.importMap = importMap;
 exports.getMapForWindow = getMapForWindow;
 exports.drawMap = drawMap;
 
-function importMap(path, mapType){
-  //string -> map grid
-  //load file
-  fileData = fs.readFileSync(path)
-  //split into lines
-  splitData = fileData.toString().split("\n")
-  //get parameters from header lines
-  headers = splitData.slice(0,7);
-  nCols = Number(headers[0].split(" ").pop())
-  nRows = Number(headers[1].split(" ").pop())
-  ndv = headers[5].split(" ").pop()
-  cellSize = Number(headers[4].split(" ").pop())
-  xOrigin = Number(headers[2].split(" ").pop())
-  yOrigin = Number(headers[3].split(" ").pop())
-  xTopLeft = xOrigin;
-  yTopLeft = yOrigin + (nRows - 1) * cellSize;
-  body = splitData.slice(7,)
-  output = []
-  function getCoords(i,j){
-    //i,j row, column
-    return [xTopLeft + cellSize * j, yTopLeft + cellSize * i]
+class WorldMap{
+  constructor(){
+    this.map = []
   }
+  //properties
 
-  for (i = 0; i<nRows; i++){
-    //parse row and remove leading space
-    row = body[i].split(" ").slice(1);
-    //split row into columns
-    for (j = 0; j<nCols; j++){
-    //parse data
-      cellData = row[j];
-      //do something
-      if (cellData != ndv){
-        let [xCoord, yCoord] = getCoords(i,j)
-        output.push({"x":j,"y":i,"value":mapType})
+  //methods
+  importMap(path, mapType){
+    //string -> map grid
+    //load file
+    let fileData = fs.readFileSync(path)
+    //split into lines
+    let splitData = fileData.toString().split("\n")
+    //get parameters from header lines
+    let headers = splitData.slice(0,7);
+    let nCols = Number(headers[0].split(" ").pop())
+    let nRows = Number(headers[1].split(" ").pop())
+    let ndv = headers[5].split(" ").pop()
+    let cellSize = Number(headers[4].split(" ").pop())
+    let xOrigin = Number(headers[2].split(" ").pop())
+    let yOrigin = Number(headers[3].split(" ").pop())
+    let xTopLeft = xOrigin;
+    let yTopLeft = yOrigin + (nRows - 1) * cellSize;
+    let body = splitData.slice(7,)
+    let output = []
+    function getCoords(i,j){
+      //i,j row, column
+      return [xTopLeft + cellSize * j, yTopLeft + cellSize * i]
+    }
+    for (let i = 0; i<nRows; i++){
+      //parse row and remove leading space
+      let row = body[i].split(" ").slice(1);
+      //split row into columns
+      for (let j = 0; j<nCols; j++){
+      //parse data
+        let cellData = row[j];
+        //do something
+        if (cellData != ndv){
+          let [xCoord, yCoord] = getCoords(i,j)
+          output.push({"x":j,"y":i,"value":mapType})
+        }
       }
     }
+    this.map = this.map.concat(output)
   }
-  return output
-}
-
-function getMapForWindow(map, xMin, xMax, yMin, yMax){
-  function filterExpression(value){
-    return (value["x"] >= xMin && value["x"] <= xMax && value["y"] >= yMin && value["y"] <= yMax)
+  getMap(){
+    return this.map;
   }
-  let filtered = map.filter(filterExpression)
-  return filtered
-}
-
-function drawMap(map, xMin, yMin){
-  //draw map to screen
-  let screenBuffer = new ScreenBuffer({"width":80,"height":24,"dst":term})
-  term.clear().hideCursor()
-  map.forEach(entry=> {
-    switch (entry.value){
-      case 'road':
-      screenBuffer.put({"x":(entry["x"]-xMin),"y":(entry["y"]-yMin),"attr":{"color":"grey","bgColor":"black"}},".")
-      break;
-      case 'water':
-      screenBuffer.put({"x":(entry["x"]-xMin),"y":(entry["y"]-yMin),"attr":{"color":"blue","bgColor":"black"}},"~")
-      break;
-      case 'building':
-      screenBuffer.put({"x":(entry["x"]-xMin),"y":(entry["y"]-yMin),"attr":{"color":"grey","bgColor":"black"}},"#")
-      break;
+  getMapForWindow(xMin, xMax, yMin, yMax){
+    function filterExpression(value){
+      return (value["x"] >= xMin && value["x"] <= xMax && value["y"] >= yMin && value["y"] <= yMax)
     }
-  })
-  //put your dude up
-  let xCenter = 40;
-  let yCenter = 12;
-  screenBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green"}},"@")
-  screenBuffer.draw()
+    let filtered = this.map.filter(filterExpression)
+    return filtered
+  }
+
 }
 
+class Screen {
+  constructor(worldMap, startX, startY){
+    this.worldMap = worldMap
+    this.xSize = 80;
+    this.ySize = 24;
+    this.xMin = startX;
+    this.yMin = startY;
+    this.screenBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize,"dst":term})
+  }
+  //methods
+  drawMap(){
+    //draw map to screen
+    //get filtered map data
+    let map = this.worldMap.getMapForWindow(this.xMin, this.xMin + this.xSize, this.yMin, this.yMin + this.ySize)
+    term.clear().hideCursor()
+    //empty screenBuffer
+    this.screenBuffer.clear()
+    this.screenBuffer.fill({"attr":{"bgColor":"black"}})
+    map.forEach(entry=> {
+      switch (entry.value){
+        case 'road':
+        this.screenBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"grey","bgColor":"black"}},".")
+        break;
+        case 'water':
+        this.screenBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"blue","bgColor":"black"}},"~")
+        break;
+        case 'building':
+        this.screenBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"grey","bgColor":"black"}},"#")
+        break;
+      }
+    })
+    //put your dude up
+    let xCenter = this.xSize/2;
+    let yCenter = this.ySize/2;
+    this.screenBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green"}},"@")
+    this.screenBuffer.draw()
+  }
+  scrollUp(amount){
+    //up means the map moves down underneath PC at center
+    this.yMin-=amount;
+    this.drawMap()
+  }
+  scrollDown(amount){
+    //up means the map moves down underneath PC at center
+    this.yMin+=amount;
+    this.drawMap()
+  }
+  scrollLeft(amount){
+    //up means the map moves down underneath PC at center
+    this.xMin-=amount;
+    this.drawMap()
+  }
+  scrollRight(amount){
+    //up means the map moves down underneath PC at center
+    this.xMin+=amount;
+    this.drawMap()
+  }
+}
+
+
+exports.WorldMap = WorldMap;
+exports.Screen = Screen;
 
 //decreasing y moves north in the map
 //increasing x moves east
@@ -136,4 +184,4 @@ function mainLoop(){
   })
 }
 
-mainLoop()
+//mainLoop()
