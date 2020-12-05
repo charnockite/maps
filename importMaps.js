@@ -146,7 +146,34 @@ class Game{
     this.screen.drawMap()
   }
   //methods
-
+  play(){
+    process.stdin.on('keypress', (key,data) =>{
+      if (data.ctrl && data.name === 'q'){
+        //quit
+        process.exit()
+      }else{
+        //on input, do something
+        switch (data.name) {
+          case 'left':
+            this.pcXPosition-=1;
+            this.screen.scrollLeft(1)
+            break;
+          case 'up':
+            this.pcYPosition-=1;
+            this.screen.scrollUp(1)
+            break;
+          case 'down':
+            this.pcYPosition+=1;
+            this.screen.scrollDown(1)
+            break;
+          case 'right':
+            this.pcXPosition+=1;
+            this.screen.scrollRight(1)
+            break;
+          }
+        }
+      })
+    }
   lookMode(){
     let offsetX = 0;
     let offsetY = 0;
@@ -186,14 +213,7 @@ class DungeonMaster{
     this.game = new Game
   }
   manage(){
-    let playReturn = "start"
-    while (playReturn != 1){
-      let playReturn = this.game.play()
-      if (playReturn = "look"){
-        //look mode
-        console.log("look mode")
-        }
-      }
+    this.game.play()
   }
 }
 
