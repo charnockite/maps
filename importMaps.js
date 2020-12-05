@@ -7,6 +7,7 @@ process.stdin.setRawMode(true)
 
 
 class WorldMap{
+  //map storage and access
   constructor(){
     this.map = []
   }
@@ -65,41 +66,53 @@ class WorldMap{
 }
 
 class Screen {
+  //screen elements
   constructor(worldMap, startX, startY){
     this.worldMap = worldMap
     this.xSize = 80;
     this.ySize = 24;
     this.xMin = startX;
     this.yMin = startY;
-    this.screenBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize,"dst":term})
+    this.terminalBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize,"dst":term})
+    this.mapBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize - 4,"dst":this.terminalBuffer})
+    this.messageBuffer = new ScreenBuffer({"width":this.xSize/2,"height":1,"x":1,"y":20,"dst":this.terminalBuffer})
+    this.terminalBuffer.clear()
+    this.terminalBuffer.fill({"attr":{"bgColor":"black"}})
+    this.terminalBuffer.draw()
+    term.clear()
   }
   //methods
   drawMap(){
     //draw map to screen
     //get filtered map data
     let map = this.worldMap.getMapForWindow(this.xMin, this.xMin + this.xSize, this.yMin, this.yMin + this.ySize)
-    term.clear().hideCursor()
+    //term.clear().hideCursor()
     //empty screenBuffer
-    this.screenBuffer.clear()
-    this.screenBuffer.fill({"attr":{"bgColor":"black"}})
+    this.mapBuffer.clear()
+    this.mapBuffer.fill({"attr":{"bgColor":"black"}})
     map.forEach(entry=> {
       switch (entry.value){
         case 'road':
-        this.screenBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"grey","bgColor":"black"}},".")
+        this.mapBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"grey","bgColor":"black"}},".")
         break;
         case 'water':
-        this.screenBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"blue","bgColor":"black"}},"~")
+        this.mapBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"blue","bgColor":"black"}},"~")
+        break;
+        case 'tree':
+        this.mapBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"green","bgColor":"black"}},"T")
         break;
         case 'building':
-        this.screenBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"grey","bgColor":"black"}},"#")
+        this.mapBuffer.put({"x":(entry["x"]-this.xMin),"y":(entry["y"]-this.yMin),"attr":{"color":"grey","bgColor":"black"}},"#")
         break;
+
       }
     })
     //put your dude up
     let xCenter = this.xSize/2;
     let yCenter = this.ySize/2;
-    this.screenBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green", "bgColor":"black"}},"@")
-    this.screenBuffer.draw()
+    this.mapBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green", "bgColor":"black"}},"@")
+    this.mapBuffer.draw()
+    this.terminalBuffer.draw()
   }
   scrollUp(amount){
     //up means the map moves down underneath PC at center
@@ -123,97 +136,160 @@ class Screen {
   }
   getValueAtCoordinates(x,y){
     //return value in map at coordinates
-    let tileInfo = this.worldMap.getMapForWindow(x, x + 1, y, y+1)
-    return tileInfo
+    let tileInfo = this.worldMap.getMapForWindow(x, x, y, y)
+    if (tileInfo.length == 1){
+      return tileInfo[0]["value"]
+    }
+  }
+  writeMessage(message){
+    //write message to message box
+    this.messageBuffer.fill({"attr":{"bgColor":"black"}})
+    this.messageBuffer.put({"x":0,"y":0, "attr":{"bgColor":"black"}},message)
+    this.messageBuffer.draw()
+    this.terminalBuffer.draw()
+  }
+  showLookCursor(x,y){
+    this.mapBuffer.put({"x":x - this.xMin,"y":y - this.yMin,"attr":{"color":"white", "bgColor":"black"}},"_")
+    this.mapBuffer.draw()
+    this.terminalBuffer.draw()
   }
 }
 
 class Game{
+  //game board - handle drawing map, keeping track of player position
   constructor(){
     let startX = 150
     let startY = 118
     this.worldMap = new WorldMap()
     this.screen = new Screen(this.worldMap, startX, startY)
-    this.pcXPosition = startX
-    this.pcYPosition = startY
+    this.pcXPosition = startX + this.screen.xSize/2
+    this.pcYPosition = startY + this.screen.ySize/2
     //initialize world map
     let roadPath = "roadsWide.asc"
     let waterPath = "water.asc"
     let buildingPath = "buildings.asc"
+    let treePath = "trees.asc"
     this.worldMap.importMap(waterPath,"water")
     this.worldMap.importMap(roadPath,"road")
     this.worldMap.importMap(buildingPath,"building")
-    this.screen.drawMap()
+    this.worldMap.importMap(treePath, "tree")
+    //this.screen.drawMap()
+    this.lookMode = false
+    this.lookXPosition = startX;
+    this.lookYPosition = startY;
   }
   //methods
   play(){
+    this.screen.drawMap()
+    this.describe()
     process.stdin.on('keypress', (key,data) =>{
+      //TODO: move this to DM level
+      //default case doesn't pass a turn
+      //look doesn't pass a turn
+      //movement passes a turn
       if (data.ctrl && data.name === 'q'){
         //quit
         process.exit()
       }else{
         //on input, do something
-        switch (data.name) {
-          case 'left':
-            this.pcXPosition-=1;
-            this.screen.scrollLeft(1)
-            break;
-          case 'up':
-            this.pcYPosition-=1;
-            this.screen.scrollUp(1)
-            break;
-          case 'down':
-            this.pcYPosition+=1;
-            this.screen.scrollDown(1)
-            break;
-          case 'right':
-            this.pcXPosition+=1;
-            this.screen.scrollRight(1)
-            break;
-          }
+        if (this.lookMode){
+          if (data.name ==  'x') {
+            //exit look mode
+            this.lookMode = false
+            this.screen.writeMessage('')
+            this.screen.drawMap()
+          }else{
+            switch (data.name){
+              case 'left':
+                this.lookXPosition-=1;
+                this.look()
+                break;
+              case 'up':
+                this.lookYPosition-=1;
+                this.look()
+                break;
+              case 'down':
+                this.lookYPosition+=1;
+                this.look()
+                break;
+              case 'right':
+                this.lookXPosition+=1;
+                this.look()
+                break;
+              }
+            }
+        }else{
+          switch (data.name) {
+            case 'left':
+              this.pcXPosition-=1;
+              this.screen.scrollLeft(1)
+              this.describe()
+              break;
+            case 'up':
+              this.pcYPosition-=1;
+              this.screen.scrollUp(1)
+              this.describe()
+              break;
+            case 'down':
+              this.pcYPosition+=1;
+              this.screen.scrollDown(1)
+              this.describe()
+              break;
+            case 'right':
+              this.pcXPosition+=1;
+              this.screen.scrollRight(1)
+              this.describe()
+              break;
+            case 'l':
+              this.lookMode = true
+              this.lookXPosition = this.pcXPosition;
+              this.lookYPosition = this.pcYPosition;
+              this.look()
+              break;
+            }
+        }
         }
       })
     }
-  lookMode(){
-    let offsetX = 0;
-    let offsetY = 0;
-    process.stdin.on('keypress', (key,data) =>{
-      switch (data.name){
-        case 'left':
-          this.offsetX-=1;
-          this.look(offsetX, offsetY)
-          break;
-        case 'up':
-          this.offsetY-=1;
-          this.look(offsetX, offsetY)
-          break;
-        case 'down':
-          this.offsetY+=1;
-          this.look(offsetX, offsetY)
-          break;
-        case 'right':
-          this.offsetX+=1;
-          this.look(offsetX, offsetY)
-          break;
-        case 'x':
-          console.log("exit")
-          return
-      }
-    })
-  }
-  look(x,y){
+  look(){
     //return information about a tile
-    console.log(this.screen.getValueAtCoordinates(this.xPosition + offsetX,this.yPosition + offsetY))
+    this.screen.drawMap()
+    this.screen.showLookCursor(this.lookXPosition,this.lookYPosition)
+    let value = this.screen.getValueAtCoordinates(this.lookXPosition,this.lookYPosition)
+    if (value) {
+      this.screen.writeMessage(`You see a ${value}`)
+    } else {
+      this.screen.writeMessage('')
+    }
+    return
+  }
+  describe(){
+    //return information about a tile
+    let value = this.screen.getValueAtCoordinates(this.pcXPosition,this.pcYPosition)
+    if (value) {
+      this.screen.writeMessage(`A ${value}`)
+    } else {
+      this.screen.writeMessage('')
+    }
     return
   }
 }
 
 class DungeonMaster{
+  //control game for player
+  //keep track of turns, enemies, etc.
   constructor(){
     this.game = new Game
   }
   manage(){
     this.game.play()
+  }
+  mainLoop(){
+    //draw map
+    //describe scene
+    //accept player input
+    //pass information to Game
+    //roll dice upon player action
   }
 }
 
