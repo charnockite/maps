@@ -5,9 +5,6 @@ const readline= require('readline')
 readline.emitKeypressEvents(process.stdin)
 process.stdin.setRawMode(true)
 
-exports.importMap = importMap;
-exports.getMapForWindow = getMapForWindow;
-exports.drawMap = drawMap;
 
 class WorldMap{
   constructor(){
@@ -101,7 +98,7 @@ class Screen {
     //put your dude up
     let xCenter = this.xSize/2;
     let yCenter = this.ySize/2;
-    this.screenBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green"}},"@")
+    this.screenBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green", "bgColor":"black"}},"@")
     this.screenBuffer.draw()
   }
   scrollUp(amount){
@@ -124,64 +121,88 @@ class Screen {
     this.xMin+=amount;
     this.drawMap()
   }
+  getValueAtCoordinates(x,y){
+    //return value in map at coordinates
+    let tileInfo = this.worldMap.getMapForWindow(x, x + 1, y, y+1)
+    return tileInfo
+  }
 }
 
+class Game{
+  constructor(){
+    let startX = 150
+    let startY = 118
+    this.worldMap = new WorldMap()
+    this.screen = new Screen(this.worldMap, startX, startY)
+    this.pcXPosition = startX
+    this.pcYPosition = startY
+    //initialize world map
+    let roadPath = "roadsWide.asc"
+    let waterPath = "water.asc"
+    let buildingPath = "buildings.asc"
+    this.worldMap.importMap(waterPath,"water")
+    this.worldMap.importMap(roadPath,"road")
+    this.worldMap.importMap(buildingPath,"building")
+    this.screen.drawMap()
+  }
+  //methods
+
+  lookMode(){
+    let offsetX = 0;
+    let offsetY = 0;
+    process.stdin.on('keypress', (key,data) =>{
+      switch (data.name){
+        case 'left':
+          this.offsetX-=1;
+          this.look(offsetX, offsetY)
+          break;
+        case 'up':
+          this.offsetY-=1;
+          this.look(offsetX, offsetY)
+          break;
+        case 'down':
+          this.offsetY+=1;
+          this.look(offsetX, offsetY)
+          break;
+        case 'right':
+          this.offsetX+=1;
+          this.look(offsetX, offsetY)
+          break;
+        case 'x':
+          console.log("exit")
+          return
+      }
+    })
+  }
+  look(x,y){
+    //return information about a tile
+    console.log(this.screen.getValueAtCoordinates(this.xPosition + offsetX,this.yPosition + offsetY))
+    return
+  }
+}
+
+class DungeonMaster{
+  constructor(){
+    this.game = new Game
+  }
+  manage(){
+    let playReturn = "start"
+    while (playReturn != 1){
+      let playReturn = this.game.play()
+      if (playReturn = "look"){
+        //look mode
+        console.log("look mode")
+        }
+      }
+  }
+}
 
 exports.WorldMap = WorldMap;
 exports.Screen = Screen;
-
+exports.Game = Game;
 //decreasing y moves north in the map
 //increasing x moves east
 
-function mainLoop(){
-  xMin = 150;
-  xMax = 230;
-  yMin = 118;
-  yMax = 142;
-  let testPath = "roads.asc"
-  let waterPath = "water.asc"
-  let buildingPath = "buildings.asc"
-  let roadMap = importMap(testPath, "road")
-  let waterMap = importMap(waterPath, "water")
-  let buildingMap = importMap(buildingPath, "building")
-  let combinedMap = roadMap.concat(waterMap,buildingMap)
-  let filtered = getMapForWindow(combinedMap,xMin,xMax,yMin,yMax)
-  drawMap(filtered, xMin, yMin)
-  //wait for input
-  process.stdin.on('keypress', (key,data) =>{
-    if (data.ctrl && data.name === 'q'){
-      //quit
-      process.exit()
-    }else{
-      //on input, do something
-      switch (data.name) {
-        case 'left':
-          xMin = xMin - 1
-          xMax = xMax - 1
-          filtered = getMapForWindow(combinedMap, xMin, xMax, yMin, yMax)
-          drawMap(filtered, xMin, yMin)
-          break;
-        case 'up':
-          yMin = yMin - 1
-          yMax = yMax - 1
-          filtered = getMapForWindow(combinedMap, xMin, xMax, yMin, yMax)
-          drawMap(filtered, xMin, yMin)
-          break;
-        case 'down':
-          yMin = yMin + 1
-          yMax = yMax + 1
-          filtered = getMapForWindow(combinedMap, xMin, xMax, yMin, yMax)
-          drawMap(filtered, xMin, yMin)
-          break;
-        case 'right':
-          xMin = xMin + 1
-          xMax = xMax + 1
-          filtered = getMapForWindow(combinedMap, xMin, xMax, yMin, yMax)
-          drawMap(filtered, xMin, yMin)
-          break;
-      }
-    }
-  })
-}
-
+let dm = new DungeonMaster
+dm.manage()
 //mainLoop()

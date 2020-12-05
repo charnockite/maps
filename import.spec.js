@@ -88,7 +88,7 @@ describe("WorldMap - Filter maps", () => {
   });
 });
 
-describe("Screen - Interactive map", () => {
+describe("Screen - Game screen map window", () => {
   let testPath = "roads.asc"
   let waterPath = "water.asc"
   let buildingPath = "buildings.asc"
@@ -107,5 +107,12 @@ describe("Screen - Interactive map", () => {
   test("Scroll map", () => {
     //scroll map
     testScreen.scrollUp(1)
+  })
+});
+
+describe("Game - Main loop and dungeon management", () => {
+  let testGame = new importMaps.Game
+  test("Start game", ()=>{
+    testGame.play()
   })
 });
