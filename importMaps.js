@@ -76,10 +76,10 @@ class Screen {
     this.terminalBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize,"dst":term})
     this.mapBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize - 4,"dst":this.terminalBuffer})
     this.messageBuffer = new ScreenBuffer({"width":this.xSize/2,"height":1,"x":1,"y":20,"dst":this.terminalBuffer})
-    this.terminalBuffer.clear()
-    this.terminalBuffer.fill({"attr":{"bgColor":"black"}})
-    this.terminalBuffer.draw()
-    term.clear()
+    //this.terminalBuffer.clear()
+    //this.terminalBuffer.fill({"attr":{"bgColor":"black"}})
+    //this.terminalBuffer.draw()
+    //term.clear()
   }
   //methods
   drawMap(){
@@ -138,7 +138,7 @@ class Screen {
     //return value in map at coordinates
     let tileInfo = this.worldMap.getMapForWindow(x, x, y, y)
     if (tileInfo.length == 1){
-      return tileInfo[0]["value"]
+      return tileInfo[0]
     }
   }
   writeMessage(message){
@@ -155,15 +155,15 @@ class Screen {
   }
 }
 
-class Game{
+class Gameboard{
   //game board - handle drawing map, keeping track of player position
   constructor(){
     let startX = 150
     let startY = 118
     this.worldMap = new WorldMap()
     this.screen = new Screen(this.worldMap, startX, startY)
-    this.pcXPosition = startX + this.screen.xSize/2
-    this.pcYPosition = startY + this.screen.ySize/2
+    this.pcXPosition = startX + this.screen.xSize/2 //190
+    this.pcYPosition = startY + this.screen.ySize/2 //130
     //initialize world map
     let roadPath = "roadsWide.asc"
     let waterPath = "water.asc"
@@ -175,20 +175,20 @@ class Game{
     this.worldMap.importMap(treePath, "tree")
     //this.screen.drawMap()
     this.lookMode = false
-    this.lookXPosition = startX;
-    this.lookYPosition = startY;
+    this.lookXPosition = this.pcXPosition;
+    this.lookYPosition = this.pcYPosition;
   }
   //methods
   play(){
-    this.screen.drawMap()
+    //this.screen.drawMap()
     this.describe()
     process.stdin.on('keypress', (key,data) =>{
       //TODO: move this to DM level
       //default case doesn't pass a turn
       //look doesn't pass a turn
-      //movement passes a turn
+      //move passes a turn
       if (data.ctrl && data.name === 'q'){
-        //quit
+        //quitmmport.spec.js
         process.exit()
       }else{
         //on input, do something
@@ -253,25 +253,65 @@ class Game{
     }
   look(){
     //return information about a tile
-    this.screen.drawMap()
-    this.screen.showLookCursor(this.lookXPosition,this.lookYPosition)
     let value = this.screen.getValueAtCoordinates(this.lookXPosition,this.lookYPosition)
-    if (value) {
-      this.screen.writeMessage(`You see a ${value}`)
-    } else {
-      this.screen.writeMessage('')
-    }
-    return
+    return value;
   }
   describe(){
     //return information about a tile
     let value = this.screen.getValueAtCoordinates(this.pcXPosition,this.pcYPosition)
-    if (value) {
-      this.screen.writeMessage(`A ${value}`)
-    } else {
-      this.screen.writeMessage('')
+    return value
+  }
+  getOffsets(direction){
+    let offsetX, offsetY = 0;
+    switch (direction){
+      case "north":
+        offsetY = -1
+        break;
+      case "east":
+        offsetX = 1
+        break;
+      case "south":
+        offsetY = 1
+        break;
+      case "west":
+        offsetX = -1
+        break;
     }
-    return
+    return [offsetX,offsetY]
+  }
+  attemptMove(direction){
+    //check if move is legal
+    //return true if legal
+    //return false if illegal
+    const [offsetX, offsetY] = this.getOffsets(direction)
+    let targetX = this.pcXPosition + offsetX
+    let targetY = this.pcYPosition + offsetY
+    let value = this.screen.getValueAtCoordinates(targetX,targetY)
+    if (!value){
+      //empty space
+      return true
+    }
+    if (value["value"] != "building"){
+      return true
+    } else {
+      return false
+    }
+  }
+  lookTo(direction){
+    //move look cursor
+    //return information about tile
+    const [offsetX, offsetY] = this.getOffsets(direction)
+    this.lookXPosition += offsetX;
+    this.lookYPosition += offsetY;
+    let result = this.look()
+    return result
+  }
+  movePC(direction){
+    //move PC
+    const [offsetX, offsetY] = this.getOffsets(direction)
+    this.pcXPosition += offsetX
+    this.pcYPosition += offsetY
+    //this.screen.drawMap()
   }
 }
 
@@ -279,10 +319,34 @@ class DungeonMaster{
   //control game for player
   //keep track of turns, enemies, etc.
   constructor(){
-    this.game = new Game
+    this.gameBoard = new Gameboard
   }
   manage(){
-    this.game.play()
+    this.gameBoard.play()
+  }
+  describe(infoBundle){
+    //interpret results for player
+    let value = infoBundle["value"]
+    switch (value){
+      case "road":
+        return "You are standing on a road."
+        break;
+      case "tree":
+        return "You are standing beneath some trees."
+        break;
+    }
+  }
+  describeLook(infoBundle){
+    //interpret results for player for things seen from a distance
+    let value = infoBundle["value"]
+    switch (value){
+      case "road":
+        return "You see a road."
+        break;
+      case "tree":
+        return "You see some trees."
+        break;
+    }
   }
   mainLoop(){
     //draw map
@@ -295,10 +359,11 @@ class DungeonMaster{
 
 exports.WorldMap = WorldMap;
 exports.Screen = Screen;
-exports.Game = Game;
+exports.Gameboard = Gameboard;
+exports.DungeonMaster = DungeonMaster;
 //decreasing y moves north in the map
 //increasing x moves east
 
-let dm = new DungeonMaster
-dm.manage()
+//let dm = new DungeonMaster
+//dm.manage()
 //mainLoop()
