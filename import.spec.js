@@ -146,10 +146,11 @@ describe("Gameboard - Position and world", () => {
 describe("DungeonMaster - manage game for player", ()=>{
   let dm = new importMaps.DungeonMaster
   test("Start new game", ()=>{
-    dm.manage()
+    dm.mainLoop()
   })
   test("Describe scene to player", ()=>{
     let infoBundle = dm.gameBoard.describe();
+    //console.log(infoBundle)
     let description = dm.describe(infoBundle)
     expect(description).toEqual("You are standing on a road.");
   })
@@ -160,5 +161,17 @@ describe("DungeonMaster - manage game for player", ()=>{
       //console.log(result)
     }
     expect(dm.describeLook(result)).toEqual("You see some trees.")
+  })
+  test("Load responses from an object for standing", ()=>{
+    //need to pull descriptions of world from a module
+    let testTile = {"x":0,"y":0,"value":"lava"}
+    let result = dm.describe(testTile);
+    expect(result).toEqual("You step into molten lava.")
+  })
+  test("Load responses from an object for looking", ()=>{
+    //need to pull descriptions of world from a module
+    let testTile = {"x":0,"y":0,"value":"lava"}
+    let result = dm.describeLook(testTile);
+    expect(result).toEqual("You see molten lava, somewhere between liquid and solid, and glowing deep red.")
   })
 });

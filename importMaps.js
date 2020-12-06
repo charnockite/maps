@@ -75,7 +75,8 @@ class Screen {
     this.yMin = startY;
     this.terminalBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize,"dst":term})
     this.mapBuffer = new ScreenBuffer({"width":this.xSize,"height":this.ySize - 4,"dst":this.terminalBuffer})
-    this.messageBuffer = new ScreenBuffer({"width":this.xSize/2,"height":1,"x":1,"y":20,"dst":this.terminalBuffer})
+    this.messageBuffer = new ScreenBuffer({"width":this.xSize,"height":1,"x":1,"y":20,"dst":this.terminalBuffer})
+    this.allowDrawing = false; //make true to allow drawing
     //this.terminalBuffer.clear()
     //this.terminalBuffer.fill({"attr":{"bgColor":"black"}})
     //this.terminalBuffer.draw()
@@ -86,10 +87,12 @@ class Screen {
     //draw map to screen
     //get filtered map data
     let map = this.worldMap.getMapForWindow(this.xMin, this.xMin + this.xSize, this.yMin, this.yMin + this.ySize)
-    //term.clear().hideCursor()
-    //empty screenBuffer
-    this.mapBuffer.clear()
-    this.mapBuffer.fill({"attr":{"bgColor":"black"}})
+    if (this.allowDrawing){
+      term.clear().hideCursor()
+      //empty screenBuffer
+      this.mapBuffer.clear()
+      this.mapBuffer.fill({"attr":{"bgColor":"black"}})
+    }
     map.forEach(entry=> {
       switch (entry.value){
         case 'road':
@@ -111,8 +114,10 @@ class Screen {
     let xCenter = this.xSize/2;
     let yCenter = this.ySize/2;
     this.mapBuffer.put({"x":xCenter,"y":yCenter,"attr":{"color":"green", "bgColor":"black"}},"@")
-    this.mapBuffer.draw()
-    this.terminalBuffer.draw()
+    if (this.allowDrawing){
+      this.mapBuffer.draw()
+      this.terminalBuffer.draw()
+    }
   }
   scrollUp(amount){
     //up means the map moves down underneath PC at center
@@ -137,6 +142,7 @@ class Screen {
   getValueAtCoordinates(x,y){
     //return value in map at coordinates
     let tileInfo = this.worldMap.getMapForWindow(x, x, y, y)
+    //console.log(tileInfo)
     if (tileInfo.length == 1){
       return tileInfo[0]
     }
@@ -145,13 +151,17 @@ class Screen {
     //write message to message box
     this.messageBuffer.fill({"attr":{"bgColor":"black"}})
     this.messageBuffer.put({"x":0,"y":0, "attr":{"bgColor":"black"}},message)
-    this.messageBuffer.draw()
-    this.terminalBuffer.draw()
+    if (this.allowDrawing){
+      this.messageBuffer.draw()
+      this.terminalBuffer.draw()
+    }
   }
   showLookCursor(x,y){
     this.mapBuffer.put({"x":x - this.xMin,"y":y - this.yMin,"attr":{"color":"white", "bgColor":"black"}},"_")
-    this.mapBuffer.draw()
-    this.terminalBuffer.draw()
+    if (this.allowDrawing){
+      this.mapBuffer.draw()
+      this.terminalBuffer.draw()
+    }
   }
 }
 
@@ -179,82 +189,12 @@ class Gameboard{
     this.lookYPosition = this.pcYPosition;
   }
   //methods
-  play(){
-    //this.screen.drawMap()
-    this.describe()
-    process.stdin.on('keypress', (key,data) =>{
-      //TODO: move this to DM level
-      //default case doesn't pass a turn
-      //look doesn't pass a turn
-      //move passes a turn
-      if (data.ctrl && data.name === 'q'){
-        //quitmmport.spec.js
-        process.exit()
-      }else{
-        //on input, do something
-        if (this.lookMode){
-          if (data.name ==  'x') {
-            //exit look mode
-            this.lookMode = false
-            this.screen.writeMessage('')
-            this.screen.drawMap()
-          }else{
-            switch (data.name){
-              case 'left':
-                this.lookXPosition-=1;
-                this.look()
-                break;
-              case 'up':
-                this.lookYPosition-=1;
-                this.look()
-                break;
-              case 'down':
-                this.lookYPosition+=1;
-                this.look()
-                break;
-              case 'right':
-                this.lookXPosition+=1;
-                this.look()
-                break;
-              }
-            }
-        }else{
-          switch (data.name) {
-            case 'left':
-              this.pcXPosition-=1;
-              this.screen.scrollLeft(1)
-              this.describe()
-              break;
-            case 'up':
-              this.pcYPosition-=1;
-              this.screen.scrollUp(1)
-              this.describe()
-              break;
-            case 'down':
-              this.pcYPosition+=1;
-              this.screen.scrollDown(1)
-              this.describe()
-              break;
-            case 'right':
-              this.pcXPosition+=1;
-              this.screen.scrollRight(1)
-              this.describe()
-              break;
-            case 'l':
-              this.lookMode = true
-              this.lookXPosition = this.pcXPosition;
-              this.lookYPosition = this.pcYPosition;
-              this.look()
-              break;
-            }
-        }
-        }
-      })
-    }
   look(){
     //return information about a tile
-    let value = this.screen.getValueAtCoordinates(this.lookXPosition,this.lookYPosition)
-    return value;
+    let result = this.screen.getValueAtCoordinates(this.lookXPosition,this.lookYPosition)
+    this.screen.drawMap()
+    this.screen.showLookCursor(this.lookXPosition,this.lookYPosition)
+    return result
   }
   describe(){
     //return information about a tile
@@ -262,7 +202,8 @@ class Gameboard{
     return value
   }
   getOffsets(direction){
-    let offsetX, offsetY = 0;
+    let offsetX = 0;
+    let offsetY = 0;
     switch (direction){
       case "north":
         offsetY = -1
@@ -278,6 +219,22 @@ class Gameboard{
         break;
     }
     return [offsetX,offsetY]
+  }
+  scrollScreen(direction){
+    switch (direction){
+      case "north":
+        this.screen.scrollUp(1);
+        break;
+      case "east":
+        this.screen.scrollRight(1);
+        break;
+      case "south":
+        this.screen.scrollDown(1);
+        break;
+      case "west":
+        this.screen.scrollLeft(1);
+        break;
+    }
   }
   attemptMove(direction){
     //check if move is legal
@@ -311,7 +268,13 @@ class Gameboard{
     const [offsetX, offsetY] = this.getOffsets(direction)
     this.pcXPosition += offsetX
     this.pcYPosition += offsetY
-    //this.screen.drawMap()
+    this.lookXPosition += offsetX
+    this.lookYPosition += offsetY
+    this.scrollScreen(direction);
+    this.screen.drawMap()
+    //return result
+    let result = this.screen.getValueAtCoordinates(this.pcXPosition,this.pcYPosition)
+    return result
   }
 }
 
@@ -320,42 +283,143 @@ class DungeonMaster{
   //keep track of turns, enemies, etc.
   constructor(){
     this.gameBoard = new Gameboard
+    this.descriptionMap = new Map([
+      ["road","You are standing on a road."],
+      ["tree","You are standing beneath a shady tree."],
+      ["water","You struggle to stay afloat in the crashing waves."],
+      ["building","You are standing on a building."],
+      ["lava","You step into molten lava."]
+    ])
+    this.descriptionLookMap = new Map([
+      ["road","You see a road."],
+      ["tree","You see some trees."],
+      ["water","You gaze out into the crashing ocean."],
+      ["building","You see a dilapidated building."],
+      ["lava","You see molten lava, somewhere between liquid and solid, and glowing deep red."]
+    ])
   }
-  manage(){
-    this.gameBoard.play()
+  announce(message){
+    //write a message to the buffer
+    this.gameBoard.screen.writeMessage(message)
   }
   describe(infoBundle){
     //interpret results for player
-    let value = infoBundle["value"]
-    switch (value){
-      case "road":
-        return "You are standing on a road."
-        break;
-      case "tree":
-        return "You are standing beneath some trees."
-        break;
+    if (infoBundle === undefined){
+      this.announce("");
+      return
     }
-  }
+    if ('value' in infoBundle){
+      let value = infoBundle["value"]
+      let description = this.descriptionMap.get(value)
+      this.announce(description);
+      return description
+      }
+    }
   describeLook(infoBundle){
     //interpret results for player for things seen from a distance
-    let value = infoBundle["value"]
-    switch (value){
-      case "road":
-        return "You see a road."
-        break;
-      case "tree":
-        return "You see some trees."
-        break;
+    if (infoBundle === undefined){
+      this.announce("");
+      return
     }
+    if ('value' in infoBundle){
+      let value = infoBundle["value"]
+      let description = this.descriptionLookMap.get(value)
+      this.announce(description)
+      return description
   }
+}
+
   mainLoop(){
     //draw map
     //describe scene
     //accept player input
     //pass information to Game
     //roll dice upon player action
-  }
-}
+      //this.screen.drawMap()
+    let result = this.gameBoard.describe()
+    this.gameBoard.screen.drawMap() //ewwww
+    this.describe(result)
+    process.stdin.on('keypress', (key,data) =>{
+      //default case doesn't pass a turn
+      //look doesn't pass a turn
+      //move passes a turn
+      //console.log(`x:${this.gameBoard.pcXPosition},y:${this.gameBoard.pcYPosition}`)
+      if (data.ctrl && data.name === 'q'){
+        //quitmmport.spec.js
+        process.exit()
+      }else{
+        //on input, do something
+        if (this.lookMode){
+          if (data.name ==  'x') {
+            //exit look mode
+            this.lookMode = false
+            this.gameBoard.screen.drawMap()
+          } else {
+            //look mode
+            let lookResult;
+            switch (data.name){
+              case 'left':
+                lookResult = this.gameBoard.lookTo('west');
+                this.describeLook(lookResult)
+                break;
+              case 'up':
+                lookResult = this.gameBoard.lookTo('north');
+                this.describeLook(lookResult)
+                break;
+              case 'down':
+                lookResult = this.gameBoard.lookTo('south');
+                this.describeLook(lookResult)
+                break;
+              case 'right':
+                lookResult = this.gameBoard.lookTo('east');
+                this.describeLook(lookResult)
+                break;
+              }
+            }//end look mode
+        } else { //not look mode
+          switch (data.name) {
+            case 'left':
+              //attempt move
+              if(this.gameBoard.attemptMove("west")){
+                //do move
+                let result = this.gameBoard.movePC("west")
+                //get info
+                this.describe(result)}
+              break;
+            case 'up':
+              //attempt move
+              if(this.gameBoard.attemptMove("north")){
+                //do move
+                let result = this.gameBoard.movePC("north")
+                //get info
+                this.describe(result)}
+              break;
+            case 'down':
+              //attempt move
+              if(this.gameBoard.attemptMove("south")){
+                //do move
+                let result = this.gameBoard.movePC("south")
+                //get info
+                this.describe(result)}
+              break;
+            case 'right':
+              //attempt move
+              if(this.gameBoard.attemptMove("east")){
+                //do move
+                let result = this.gameBoard.movePC("east")
+                //get info
+                this.describe(result)}
+              break;
+            case 'l':
+              this.lookMode = true
+              let result = this.gameBoard.describe()
+              break;
+            }//end switch
+          }//end else
+        }//end not exiting else
+      })//end listener
+    }//end mainLoop
+  }//end DM
 
 exports.WorldMap = WorldMap;
 exports.Screen = Screen;
@@ -364,6 +428,6 @@ exports.DungeonMaster = DungeonMaster;
 //decreasing y moves north in the map
 //increasing x moves east
 
-//let dm = new DungeonMaster
-//dm.manage()
-//mainLoop()
+let dm = new DungeonMaster
+dm.gameBoard.screen.allowDrawing = true
+dm.mainLoop()
