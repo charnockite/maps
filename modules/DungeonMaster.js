@@ -4,7 +4,9 @@ class DungeonMaster{
   //control game for player
   //keep track of turns, enemies, etc.
   constructor(){
-    this.gameboard = new Gameboard
+    //this.gameboard = new Gameboard
+    this.gameboards = new Map([])
+    this.currentGameboard = new Gameboard()
     this.descriptionMap = new Map([
       ["road","You are standing on a road."],
       ["tree","You are standing beneath a shady tree."],
@@ -20,10 +22,12 @@ class DungeonMaster{
       ["lava","You see molten lava, somewhere between liquid and solid, and glowing deep red."]
     ])
   }
+
   announce(message){
     //write a message to the buffer
-    this.gameboard.screen.writeMessage(message)
+    this.currentGameboard.screen.writeMessage(message)
   }
+
   describe(infoBundle){
     //interpret results for player
     if (infoBundle === undefined){
@@ -78,17 +82,38 @@ class DungeonMaster{
   doMove(direction){
     //str direction
     //move the PC on the Gameboard
-    this.gameboard.movePC(direction)
+    this.currentGameboard.movePC(direction)
   }
   doMoveIfValid(direction){
     //str direction
     //check if move is valid
     let [xOffset, yOffset] = this.getOffsets(direction)
-    let collision = this.gameboard.getCollisions(xOffset, yOffset)
+    let collision = this.currentGameboard.getCollisions(xOffset, yOffset)
     //check valid move tiles
     if (collision.tiles[0] != "building"){
       this.doMove(direction)
     }
+  }
+
+  setupGameboard(mapName, worldMap){
+    //WorldMap worldMap
+    //setup gameboard and add to list
+    let newGameboard = new Gameboard(worldMap)
+    this.gameboards.set(mapName, newGameboard)
+  }
+
+  switchGameboard(key){
+    //string key
+    //switch to requested gameboard
+    this.currentGameboard = this.gameboards.get(key)
+  }
+
+  followEntrance(destGameboardID, destX, destY){
+    //string destGameboardID, int destX, int destY
+    //switch to requested gameboard and set pc position
+    this.switchGameboard(destGameboardID)
+    this.currentGameboard.pcXPosition = destX
+    this.currentGameboard.pcYPosition = destY
   }
 
   mainLoop(){
@@ -98,8 +123,8 @@ class DungeonMaster{
     //pass information to Game
     //roll dice upon player action
       //this.screen.drawMap()
-    let result = this.gameboard.describe()
-    this.gameboard.screen.drawMap() //ewwww
+    let result = this.currentGameboard.describe()
+    this.currentGameboard.screen.drawMap() //ewwww
     this.describe(result)
     process.stdin.on('keypress', (key,data) =>{
       //default case doesn't pass a turn
@@ -115,25 +140,25 @@ class DungeonMaster{
           if (data.name ==  'x') {
             //exit look mode
             this.lookMode = false
-            this.gameboard.screen.drawMap()
+            this.currentGameboard.screen.drawMap()
           } else {
             //look mode
             let lookResult;
             switch (data.name){
               case 'left':
-                lookResult = this.gameboard.lookTo('west');
+                lookResult = this.currentGameboard.lookTo('west');
                 this.describeLook(lookResult)
                 break;
               case 'up':
-                lookResult = this.gameboard.lookTo('north');
+                lookResult = this.currentGameboard.lookTo('north');
                 this.describeLook(lookResult)
                 break;
               case 'down':
-                lookResult = this.gameboard.lookTo('south');
+                lookResult = this.currentGameboard.lookTo('south');
                 this.describeLook(lookResult)
                 break;
               case 'right':
-                lookResult = this.gameboard.lookTo('east');
+                lookResult = this.currentGameboard.lookTo('east');
                 this.describeLook(lookResult)
                 break;
               }
@@ -142,39 +167,39 @@ class DungeonMaster{
           switch (data.name) {
             case 'left':
               //attempt move
-              if(this.gameboard.attemptMove("west")){
+              if(this.currentGameboard.attemptMove("west")){
                 //do move
-                let result = this.gameboard.movePC("west")
+                let result = this.currentGameboard.movePC("west")
                 //get info
                 this.describe(result)}
               break;
             case 'up':
               //attempt move
-              if(this.gameboard.attemptMove("north")){
+              if(this.currentGameboard.attemptMove("north")){
                 //do move
-                let result = this.gameboard.movePC("north")
+                let result = this.currentGameboard.movePC("north")
                 //get info
                 this.describe(result)}
               break;
             case 'down':
               //attempt move
-              if(this.gameboard.attemptMove("south")){
+              if(this.currentGameboard.attemptMove("south")){
                 //do move
-                let result = this.gameboard.movePC("south")
+                let result = this.currentGameboard.movePC("south")
                 //get info
                 this.describe(result)}
               break;
             case 'right':
               //attempt move
-              if(this.gameboard.attemptMove("east")){
+              if(this.currentGameboard.attemptMove("east")){
                 //do move
-                let result = this.gameboard.movePC("east")
+                let result = this.currentGameboard.movePC("east")
                 //get info
                 this.describe(result)}
               break;
             case 'l':
               this.lookMode = true
-              let result = this.gameboard.describe()
+              let result = this.currentGameboard.describe()
               break;
             }//end switch
           }//end else

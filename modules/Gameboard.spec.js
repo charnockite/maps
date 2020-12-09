@@ -1,8 +1,22 @@
 const Gameboard = require("./Gameboard.js")
 const WorldMap = require("./WorldMap.js")
+let testWorldMap = new WorldMap()
+let testPath = "roadsWide.asc"
+let waterPath = "water.asc"
+let buildingPath = "buildings.asc"
+testWorldMap.importMap(waterPath,"water")
+testWorldMap.importMap(testPath,"road")
+testWorldMap.importMap(buildingPath,"building")
+
+describe("Gameboard - initialize", ()=>{
+  test("Make a new gameboard", ()=>{
+    let testGameboard = new Gameboard(testWorldMap)
+    expect(testGameboard.worldMap).toMatchObject(testWorldMap)
+  })
+})
 
 describe("Gameboard - Position and world", () => {
-  let testGameboard = new Gameboard;
+  let testGameboard = new Gameboard(testWorldMap);
   test("Get info bundle about player position", ()=>{
     let result = testGameboard.describe()
     expect(result).toMatchObject({"x":190,"y":130,"value":"road"})

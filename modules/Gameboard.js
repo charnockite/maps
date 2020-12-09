@@ -2,22 +2,14 @@ const WorldMap = require('./WorldMap.js')
 const Screen = require('./Screen.js')
 class Gameboard{
   //game board - handle drawing map, keeping track of player position
-  constructor(){
+  constructor(worldMap){
+    //WorldMap worldMap
     let startX = 150
     let startY = 118
-    this.worldMap = new WorldMap()
+    this.worldMap = worldMap
     this.screen = new Screen(this.worldMap, startX, startY)
     this.pcXPosition = startX + this.screen.xSize/2 //190
     this.pcYPosition = startY + this.screen.ySize/2 //130
-    //initialize world map
-    let roadPath = "roadsWide.asc"
-    let waterPath = "water.asc"
-    let buildingPath = "buildings.asc"
-    let treePath = "trees.asc"
-    this.worldMap.importMap(waterPath,"water")
-    this.worldMap.importMap(roadPath,"road")
-    this.worldMap.importMap(buildingPath,"building")
-    this.worldMap.importMap(treePath, "tree")
     //this.screen.drawMap()
     this.lookMode = false
     this.lookXPosition = this.pcXPosition;
@@ -104,6 +96,7 @@ class Gameboard{
   movePC(direction){
     //move PC
     const [offsetX, offsetY] = this.getOffsets(direction)
+    //console.log(`Move from ${this.pcXPosition},${this.pcYPosition} : ${offsetX},${offsetY}`)
     this.pcXPosition += offsetX
     this.pcYPosition += offsetY
     this.lookXPosition += offsetX

@@ -3,8 +3,9 @@ var term = require('terminal-kit').terminal;
 var ScreenBuffer = require('terminal-kit').ScreenBuffer;
 const readline= require('readline')
 readline.emitKeypressEvents(process.stdin)
-process.stdin.setRawMode(true)
-
+if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+}
 
 class Screen {
   //screen elements
